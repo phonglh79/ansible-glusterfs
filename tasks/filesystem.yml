@@ -1,0 +1,56 @@
+---
+
+# BECAREFUL!
+# - name: Prepare partitions
+#   filesystem: fstype=xfs dev="{{ xfs_partition }}"
+
+- name: Turn down vm.swappiness setting
+  sysctl: name=vm.swappiness value=5
+
+- name: Set deadline I/O scheduler, default is 'noop [deadline] cfq'
+  shell: /bin/echo "deadline" > /sys/block/{{ xfs_disk }}/queue/scheduler
+
+- name: Set I/O request size
+  shell: /bin/echo "256" > /sys/block/{{ xfs_disk }}/queue/nr_requests
+
+- name: Set read-ahead size
+  shell: /sbin/blockdev --setra 4096 /dev/{{ xfs_disk }}
+
+- name: Set unlimited stack/lock/cpu/open files limits
+  lineinfile: dest=/sbin/mount.glusterfs
+    regexp="^ulimit {{ item }} unlimited"
+    line="ulimit {{ item }} unlimited"
+    insertbefore='^_init'
+  with_items:
+    - "-s"  # Unlimited stack size
+    - "-l"  # Unlimited lock size
+    - "-t"  # Unlimited CPU time
+    - "-n"  # Unlimited open files
+
+- name: Mount up device by UUID
+  mount:
+    path: /mnt/bricks
+    src: "{{ xfs_partition }}"
+    fstype: xfs
+    opts: loop,inode64,noatime
+    state: mounted
+
+- name: Ensure Gluster volumes
+  gluster_volume:
+    state: present
+    name: "{{ item.name }}"
+    bricks: "{{ item.path }}"
+    rebalance: yes
+    force: yes
+    cluster: "{{ glusterfs_cluster }}"
+  run_once: true
+  with_items: "{{ xfs_mounts }}"
+
+- name: Ensure Gluster volumes are mounted
+  mount:
+    path: "{{ item.path }}"
+    src: "localhost:{{ item.volume }}"
+    fstype: glusterfs
+    opts: "defaults,fetch-attempts=9,_netdev,log-level=WARNING,log-file={{ item.log }}"
+    state: mounted
+  with_items: "{{ glusterfs_mounts }}"

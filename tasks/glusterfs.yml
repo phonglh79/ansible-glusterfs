@@ -1,0 +1,41 @@
+---
+
+# Debian / Ubuntu
+- when: ansible_os_family == 'Debian'
+  block:
+    - name: Add PPA for GlusterFS
+      apt_repository:
+        repo: "ppa:gluster/glusterfs-{{ glusterfs_ppa_version }}"
+        state: present
+        update_cache: yes
+      when: glusterfs_ppa_use
+
+    - name: Ensure GlusterFS is installed
+      apt: name={{ item }} state=latest
+      with_items:
+        - xfsprogs
+        - glusterfs-server
+        - glusterfs-client
+
+# Archlinux
+- when: ansible_distribution == 'Arch Linux'
+  block:
+    - name: Ensure GlusterFS is installed
+      pacman: name={{ item }} state=latest
+      with_items:
+        - nfs-utils
+        - xfsprogs
+        - glusterfs
+
+    - name: Ensure rpcbind is started and enabled at boot
+      service: name={{ item }}
+        state=started
+        enabled=yes
+      with_items:
+        - rpcbind.socket
+        - rpcbind.service
+
+- name: Ensure GlusterFS is started and enabled at boot
+  service: name=glusterd
+    state=started
+    enabled=yes

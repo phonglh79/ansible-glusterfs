@@ -1,0 +1,12 @@
+---
+
+xfs_disk: ""
+xfs_partition: /dev/
+
+xfs_mounts: []
+glusterfs_mounts: []
+glusterfs_cluster: []
+
+# Ubuntu / Debian only
+glusterfs_ppa_use: yes
+glusterfs_ppa_version: 3.12
